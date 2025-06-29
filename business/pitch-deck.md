@@ -1,7 +1,7 @@
-# DrivewayHub Pitch Deck
+# Driveway-Hub Pitch Deck
 
 ## Slide 1: Title
-**DrivewayHub**
+**Driveway-Hub**
 *Turn Every Driveway Into a Parking Solution*
 
 The world's first Tesla-integrated smart parking platform
@@ -29,7 +29,7 @@ The world's first Tesla-integrated smart parking platform
 ## Slide 3: The Solution
 ### Smart Parking + Tesla Integration
 
-**DrivewayHub** connects drivers with homeowners through the world's first Tesla-integrated parking platform.
+**Driveway-Hub** connects drivers with homeowners through the world's first Tesla-integrated parking platform.
 
 **Smart Auto-Park Technology:**
 1. Set destination in Tesla
