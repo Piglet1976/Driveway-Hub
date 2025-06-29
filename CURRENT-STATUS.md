@@ -1,7 +1,7 @@
 # Driveway-Hub - Current Status for Claude
 
 ## Project Overview
-DrivewayHub is the world's first Tesla-integrated smart parking marketplace that connects drivers with homeowners who have unused driveways. Revolutionary Smart Auto-Park technology allows Tesla vehicles to automatically find, book, and navigate to optimal parking spots.
+Driveway-Hub is the world's first Tesla-integrated smart parking marketplace that connects drivers with homeowners who have unused driveways. Revolutionary Smart Auto-Park technology allows Tesla vehicles to automatically find, book, and navigate to optimal parking spots.
 
 ## Key Achievements (June 29-30, 2025)
 
