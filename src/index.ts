@@ -2,6 +2,15 @@ import express from 'express';
 import { Pool } from 'pg';
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
+import { Request, Response, NextFunction } from 'express';
+
+declare global {
+  namespace Express {
+    interface Request {
+      user?: any;
+    }
+  }
+}
 
 dotenv.config();
 
@@ -16,10 +25,10 @@ const pool = new Pool({
   port: Number(process.env.DB_PORT),
 });
 
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-key';
 
 // Middleware to verify JWT
-const authenticateToken = (req, res, next) => {
+const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
   const token = req.headers['authorization']?.split(' ')[1];
   if (!token) return res.status(401).json({ error: 'No token provided' });
 
@@ -41,7 +50,10 @@ app.post('/api/bookings/create', authenticateToken, async (req, res) => {
     );
     res.status(201).json({ message: 'Booking created', booking: result.rows[0] });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to create booking', details: error.message });
+    res.status(500).json({ 
+      error: 'Failed to create booking', 
+      details: error instanceof Error ? error.message : 'Unknown error' 
+    });
   }
 });
 
