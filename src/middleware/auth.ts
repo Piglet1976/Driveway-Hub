@@ -7,33 +7,35 @@ const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-key';
 /**
  * Middleware to verify JWT tokens
  */
-export const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
+export const authenticateToken = (req: Request, res: Response, next: NextFunction): void => {
   try {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
     if (!token) {
-      return res.status(401).json({ 
+      res.status(401).json({ 
         success: false,
         error: 'Access token required',
         code: 'TOKEN_MISSING'
       });
+      return;
     }
 
     jwt.verify(token, JWT_SECRET, (err, user) => {
       if (err) {
-        return res.status(403).json({ 
+        res.status(403).json({ 
           success: false,
           error: 'Invalid or expired token',
           code: 'TOKEN_INVALID'
         });
+        return;
       }
 
       req.user = user as any;
       next();
     });
   } catch (error) {
-    return res.status(500).json({ 
+    res.status(500).json({ 
       success: false,
       error: 'Authentication error',
       code: 'AUTH_ERROR'
@@ -45,21 +47,22 @@ export const authenticateToken = (req: Request, res: Response, next: NextFunctio
  * Middleware to check if user has specific role
  */
 export const requireRole = (roles: string[]) => {
-  return async (req: Request, res: Response, next: NextFunction) => {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       if (!req.user) {
-        return res.status(401).json({ 
+        res.status(401).json({ 
           success: false,
           error: 'Authentication required',
           code: 'AUTH_REQUIRED'
         });
+        return;
       }
 
       // You would typically fetch user role from database here
       // For now, assume all authenticated users can access
       next();
     } catch (error) {
-      return res.status(500).json({ 
+      res.status(500).json({ 
         success: false,
         error: 'Authorization error',
         code: 'AUTHORIZATION_ERROR'

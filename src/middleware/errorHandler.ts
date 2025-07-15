@@ -10,7 +10,7 @@ export const errorHandler = (
   req: Request,
   res: Response,
   next: NextFunction
-) => {
+): void => {
   console.error('Error occurred:', {
     message: error.message,
     stack: error.stack,
@@ -21,47 +21,52 @@ export const errorHandler = (
 
   // Handle known business errors
   if (error instanceof DrivewayHubError) {
-    return res.status(error.statusCode).json({
+    res.status(error.statusCode).json({
       success: false,
       error: error.message,
       code: error.code,
       timestamp: new Date().toISOString()
     });
+    return;
   }
 
   // Handle specific error types
   if (error.name === 'ValidationError') {
-    return res.status(400).json({
+    res.status(400).json({
       success: false,
       error: 'Invalid input data',
       code: 'VALIDATION_ERROR',
       details: error.message
     });
+    return;
   }
 
   if (error.name === 'UnauthorizedError') {
-    return res.status(401).json({
+    res.status(401).json({
       success: false,
       error: 'Unauthorized access',
       code: 'UNAUTHORIZED'
     });
+    return;
   }
 
   // Handle database errors
   if (error.message.includes('duplicate key')) {
-    return res.status(409).json({
+    res.status(409).json({
       success: false,
       error: 'Resource already exists',
       code: 'DUPLICATE_RESOURCE'
     });
+    return;
   }
 
   if (error.message.includes('foreign key')) {
-    return res.status(400).json({
+    res.status(400).json({
       success: false,
       error: 'Invalid reference to related resource',
       code: 'INVALID_REFERENCE'
     });
+    return;
   }
 
   // Default to 500 server error

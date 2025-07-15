@@ -48,7 +48,8 @@ export class BookingController {
       
       // Handle known business logic errors
       if (error instanceof Error) {
-        switch (error.message) {
+        const errorMessage = error.message;
+        switch (errorMessage) {
           case 'DRIVEWAY_NOT_AVAILABLE':
             return res.status(409).json({ 
               error: 'Driveway is not available for the selected time',
@@ -70,7 +71,7 @@ export class BookingController {
       return res.status(500).json({
         error: 'Failed to create booking',
         code: 'INTERNAL_SERVER_ERROR',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        details: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined
       });
     }
   }
@@ -81,7 +82,11 @@ export class BookingController {
    */
   static async getUserBookings(req: Request, res: Response) {
     try {
-      const user = await UserService.getUserByEmail(req.user.email);
+      const user = await UserService.getUserByEmail(req.user?.email!);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      
       const bookings = await BookingService.getUserBookings(user.id);
 
       return res.json({
@@ -100,7 +105,10 @@ export class BookingController {
   static async cancelBooking(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const user = await UserService.getUserByEmail(req.user.email);
+      const user = await UserService.getUserByEmail(req.user?.email!);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
       
       const result = await BookingService.cancelBooking(id, user.id);
       

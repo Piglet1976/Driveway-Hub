@@ -5,11 +5,7 @@ import { Request } from 'express';
 declare global {
   namespace Express {
     interface Request {
-      user?: {
-        email: string;
-        iat: number;
-        exp: number;
-      };
+      user?: any; // Keep simple for now to avoid conflicts
     }
   }
 }
@@ -24,6 +20,7 @@ export interface User {
   phone?: string;
   email_verified: boolean;
   created_at: Date;
+  password_hash?: string; // For user creation
 }
 
 // Vehicle Types
@@ -67,6 +64,8 @@ export interface Driveway {
   charging_connector_type?: string;
   has_security_camera: boolean;
   has_lighting: boolean;
+  access_instructions?: string; // Add missing fields
+  special_instructions?: string;
   listing_status: 'active' | 'inactive' | 'suspended';
   is_available: boolean;
   coordinates?: { lat: number; lng: number };
