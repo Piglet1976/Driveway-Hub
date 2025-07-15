@@ -41,18 +41,42 @@ const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
 
 // POST /api/bookings/create endpoint
 app.post('/api/bookings/create', authenticateToken, async (req, res) => {
-  const { driveway_id, start_time, end_time } = req.body;
-
+  const { driveway_id, vehicle_id, start_time, end_time, driver_notes } = req.body;
+  
   try {
-    const result = await pool.query(
-      'SELECT * FROM create_booking($1, $2, $3, $4)',
-      [req.user.email, driveway_id, start_time, end_time]
+    console.log('Token email:', req.user.email); // Debug line
+    
+    // Get the user's UUID from their email
+    const userResult = await pool.query(
+      'SELECT id FROM users WHERE email = $1',
+      [req.user.email]
     );
-    res.status(201).json({ message: 'Booking created', booking: result.rows[0] });
+    
+    console.log('Database query result:', userResult.rows); // Debug line
+    
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ 
+        error: 'User not found',
+        debug: { searchedEmail: req.user.email } // Debug info
+      });
+    }
+    
+    const driver_id = userResult.rows[0].id;
+    
+    // Call the create_booking function with correct parameters
+    const result = await pool.query(
+      'SELECT * FROM create_booking($1, $2, $3, $4, $5, $6)',
+      [driver_id, vehicle_id, driveway_id, start_time, end_time, driver_notes || null]
+    );
+    
+    res.status(201).json({ 
+      message: 'Booking created successfully', 
+      booking: result.rows[0] 
+    });
   } catch (error) {
-    res.status(500).json({ 
-      error: 'Failed to create booking', 
-      details: error instanceof Error ? error.message : 'Unknown error' 
+    res.status(500).json({
+      error: 'Failed to create booking',
+      details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });
