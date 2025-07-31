@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { Routes, Route, useNavigate } from 'react-router-dom';
+import TeslaLogin from './components/TeslaLogin.tsx';
 
 interface User {
   id: string;
@@ -50,6 +52,7 @@ function App() {
   const [booking, setBooking] = useState<BookingResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const apiCall = async (endpoint: string, options: RequestInit = {}) => {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -81,6 +84,7 @@ function App() {
       setUser(data.user);
       localStorage.setItem('driveway_hub_token', data.token);
       setStep('search');
+      navigate('/search');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
     } finally {
@@ -115,12 +119,14 @@ function App() {
   useEffect(() => {
     if (token && step === 'search') {
       loadData();
+      navigate('/search');
     }
-  }, [token, step]);
+  }, [token, step, loadData, navigate]); // Added missing dependencies
 
   const handleDrivewaySelect = (driveway: Driveway) => {
     setSelectedDriveway(driveway);
     setStep('book');
+    navigate('/book');
   };
 
   const calculateHours = () => {
@@ -160,6 +166,7 @@ function App() {
 
       setBooking(bookingData.booking);
       setStep('confirm');
+      navigate('/confirm');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Booking failed');
     } finally {
@@ -175,6 +182,7 @@ function App() {
     setEndTime('');
     setBooking(null);
     setError(null);
+    navigate('/search');
   };
 
   const styles = {
@@ -210,252 +218,10 @@ function App() {
     }
   };
 
-  if (step === 'login') {
-    return (
-      <div style={{ ...styles.container, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ ...styles.card, maxWidth: '400px', width: '100%', textAlign: 'center' }}>
-          <h1 style={{ fontSize: '2.5rem', fontWeight: 'bold', marginBottom: '0.5rem', color: '#1F2937' }}>
-            Driveway Hub
-          </h1>
-          <p style={{ color: '#6B7280', marginBottom: '1rem' }}>Tesla-Ready Parking Platform</p>
-          <div style={{ 
-            display: 'inline-flex', 
-            alignItems: 'center', 
-            padding: '8px 16px', 
-            borderRadius: '20px', 
-            backgroundColor: '#D1FAE5', 
-            color: '#065F46',
-            fontSize: '14px',
-            marginBottom: '2rem'
-          }}>
-            <span style={{ 
-              width: '8px', 
-              height: '8px', 
-              backgroundColor: '#10B981', 
-              borderRadius: '50%', 
-              marginRight: '8px' 
-            }}></span>
-            API Live & Ready
-          </div>
-
-          <div style={{ marginBottom: '1rem' }}>
-            <input
-              type="email"
-              placeholder="Enter your email"
-              style={styles.input}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  handleLogin((e.target as HTMLInputElement).value);
-                }
-              }}
-            />
-          </div>
-          
-          <button
-            onClick={() => {
-              const input = document.querySelector('input[type="email"]') as HTMLInputElement;
-              handleLogin(input?.value || 'hello@driveway-hub.app');
-            }}
-            disabled={loading}
-            style={{
-              ...styles.button,
-              width: '100%',
-              marginBottom: '1rem',
-              opacity: loading ? 0.6 : 1
-            }}
-          >
-            {loading ? 'Signing In...' : 'Sign In'}
-          </button>
-          
-          <button
-            onClick={() => handleLogin('hello@driveway-hub.app')}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: '#3B82F6',
-              cursor: 'pointer',
-              fontSize: '14px'
-            }}
-          >
-            Use Demo Account
-          </button>
-
-          {error && (
-            <div style={{ 
-              marginTop: '1rem', 
-              padding: '12px', 
-              backgroundColor: '#FEF2F2', 
-              border: '1px solid #FECACA', 
-              color: '#DC2626', 
-              borderRadius: '8px' 
-            }}>
-              {error}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  if (step === 'search') {
-    return (
-      <div style={{ minHeight: '100vh', backgroundColor: '#F9FAFB' }}>
-        <header style={{ 
-          backgroundColor: 'white', 
-          borderBottom: '1px solid #E5E7EB',
-          padding: '1rem 0'
-        }}>
-          <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-              <h1 style={{ fontSize: '1.75rem', fontWeight: 'bold', color: '#1F2937', margin: 0 }}>
-                Driveway Hub
-              </h1>
-              <span style={{ 
-                marginLeft: '12px', 
-                fontSize: '12px', 
-                backgroundColor: '#D1FAE5', 
-                color: '#065F46', 
-                padding: '4px 12px', 
-                borderRadius: '12px' 
-              }}>
-                Live Demo
-              </span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <span style={{ color: '#6B7280' }}>Welcome, {user?.first_name}</span>
-              <button
-                onClick={() => {
-                  localStorage.removeItem('driveway_hub_token');
-                  setToken(null);
-                  setUser(null);
-                  setStep('login');
-                }}
-                style={{ background: 'none', border: 'none', color: '#6B7280', cursor: 'pointer' }}
-              >
-                Sign Out
-              </button>
-            </div>
-          </div>
-        </header>
-
-        <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem 1rem' }}>
-          <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
-            <h2 style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#1F2937', marginBottom: '1rem' }}>
-              Find Your Perfect Parking Spot
-            </h2>
-            <p style={{ fontSize: '1.25rem', color: '#6B7280' }}>
-              Secure, convenient parking for your Tesla
-            </p>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3rem' }}>
-            <div>
-              <h3 style={{ fontSize: '1.5rem', fontWeight: '600', color: '#1F2937', marginBottom: '1.5rem' }}>
-                Available Driveways
-              </h3>
-              
-              {driveways.map((driveway) => (
-                <div
-                  key={driveway.id}
-                  style={{
-                    border: '1px solid #E5E7EB',
-                    borderRadius: '12px',
-                    padding: '1.5rem',
-                    marginBottom: '1rem',
-                    backgroundColor: 'white',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s',
-                    boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)'
-                  }}
-                  onClick={() => handleDrivewaySelect(driveway)}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                    e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.1)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = '0 1px 3px 0 rgba(0, 0, 0, 0.1)';
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div style={{ flex: 1 }}>
-                      <h4 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#1F2937', margin: '0 0 0.5rem 0' }}>
-                        {driveway.title}
-                      </h4>
-                      <p style={{ color: '#6B7280', fontSize: '14px', margin: '0 0 1rem 0' }}>
-                        {driveway.description}
-                      </p>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem' }}>
-                        <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#059669' }}>
-                          ${driveway.hourly_rate}/hour
-                        </span>
-                        <span style={{ color: '#6B7280' }}>
-                          ${driveway.daily_rate}/day
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', fontSize: '14px', color: '#6B7280' }}>
-                        <span>📍 Hosted by {driveway.host_name}</span>
-                      </div>
-                    </div>
-                    <button style={{
-                      ...styles.button,
-                      marginLeft: '1rem'
-                    }}>
-                      Select
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div style={styles.card}>
-              <h3 style={{ fontSize: '1.5rem', fontWeight: '600', color: '#1F2937', marginBottom: '1rem' }}>
-                Your Vehicles
-              </h3>
-              {vehicles.map((vehicle) => (
-                <div key={vehicle.id} style={{
-                  border: '1px solid #E5E7EB',
-                  borderRadius: '8px',
-                  padding: '1rem',
-                  marginBottom: '1rem'
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <h4 style={{ fontWeight: '500', color: '#1F2937', margin: '0 0 0.25rem 0' }}>
-                        {vehicle.year} {vehicle.make} {vehicle.model}
-                      </h4>
-                      <p style={{ color: '#6B7280', fontSize: '14px', margin: 0 }}>
-                        License: {vehicle.license_plate}
-                      </p>
-                    </div>
-                    <div style={{ fontSize: '1.5rem' }}>🚗</div>
-                  </div>
-                </div>
-              ))}
-              
-              <div style={{
-                marginTop: '1.5rem',
-                padding: '1rem',
-                backgroundColor: '#EBF8FF',
-                borderRadius: '8px'
-              }}>
-                <h4 style={{ fontWeight: '500', color: '#1E40AF', margin: '0 0 0.5rem 0' }}>
-                  Tesla Integration Ready
-                </h4>
-                <p style={{ color: '#1E40AF', fontSize: '14px', margin: 0 }}>
-                  Once connected, we'll automatically send navigation and parking instructions to your Tesla.
-                </p>
-              </div>
-            </div>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
-  if (step === 'book') {
+  // Separate component for the book step to handle pricing
+  const BookStep = () => {
     const pricing = calculateTotal();
-    
+
     return (
       <div style={{ minHeight: '100vh', backgroundColor: '#F9FAFB' }}>
         <header style={{ 
@@ -601,81 +367,353 @@ function App() {
         </main>
       </div>
     );
-  }
+  };
 
-  if (step === 'confirm') {
-    return (
-      <div style={{ ...styles.container, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ ...styles.card, maxWidth: '500px', width: '100%', textAlign: 'center' }}>
-          <div style={{
-            width: '64px',
-            height: '64px',
-            backgroundColor: '#D1FAE5',
-            borderRadius: '50%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            margin: '0 auto 1.5rem auto'
-          }}>
-            <svg width="32" height="32" fill="none" stroke="#059669" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-          
-          <h2 style={{ fontSize: '2rem', fontWeight: 'bold', color: '#059669', marginBottom: '1rem' }}>
-            Booking Confirmed!
-          </h2>
-          
-          {booking && (
-            <div style={{
-              textAlign: 'left',
-              backgroundColor: '#F9FAFB',
-              padding: '1.5rem',
-              borderRadius: '8px',
-              marginBottom: '2rem',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '0.75rem'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ fontWeight: '500' }}>Booking Reference:</span>
-                <span style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>{booking.booking_reference}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Total Paid:</span>
-                <span style={{ fontWeight: 'bold' }}>${booking.total_amount.toFixed(2)}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: '#6B7280' }}>
-                <span>Host receives:</span>
-                <span>${booking.host_payout.toFixed(2)}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: '#6B7280' }}>
-                <span>Platform fee:</span>
-                <span>${booking.platform_fee.toFixed(2)}</span>
+  return (
+    <Routes>
+      {step === 'login' && (
+        <Route
+          path="/"
+          element={
+            <div style={{ ...styles.container, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ ...styles.card, maxWidth: '400px', width: '100%', textAlign: 'center' }}>
+                <h1 style={{ fontSize: '2.5rem', fontWeight: 'bold', marginBottom: '0.5rem', color: '#1F2937' }}>
+                  Driveway Hub
+                </h1>
+                <p style={{ color: '#6B7280', marginBottom: '1rem' }}>Tesla-Ready Parking Platform</p>
+                <div style={{ 
+                  display: 'inline-flex', 
+                  alignItems: 'center', 
+                  padding: '8px 16px', 
+                  borderRadius: '20px', 
+                  backgroundColor: '#D1FAE5', 
+                  color: '#065F46',
+                  fontSize: '14px',
+                  marginBottom: '2rem'
+                }}>
+                  <span style={{ 
+                    width: '8px', 
+                    height: '8px', 
+                    backgroundColor: '#10B981', 
+                    borderRadius: '50%', 
+                    marginRight: '8px' 
+                  }}></span>
+                  API Live & Ready
+                </div>
+
+                <div style={{ marginBottom: '1rem' }}>
+                  <input
+                    type="email"
+                    placeholder="Enter your email"
+                    style={styles.input}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        handleLogin((e.target as HTMLInputElement).value);
+                      }
+                    }}
+                  />
+                </div>
+                
+                <button
+                  onClick={() => {
+                    const input = document.querySelector('input[type="email"]') as HTMLInputElement;
+                    handleLogin(input?.value || 'hello@driveway-hub.app');
+                  }}
+                  disabled={loading}
+                  style={{
+                    ...styles.button,
+                    width: '100%',
+                    marginBottom: '1rem',
+                    opacity: loading ? 0.6 : 1
+                  }}
+                >
+                  {loading ? 'Signing In...' : 'Sign In'}
+                </button>
+                
+                <button
+                  onClick={() => handleLogin('hello@driveway-hub.app')}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#3B82F6',
+                    cursor: 'pointer',
+                    fontSize: '14px'
+                  }}
+                >
+                  Use Demo Account
+                </button>
+
+                {error && (
+                  <div style={{ 
+                    marginTop: '1rem', 
+                    padding: '12px', 
+                    backgroundColor: '#FEF2F2', 
+                    border: '1px solid #FECACA', 
+                    color: '#DC2626', 
+                    borderRadius: '8px' 
+                  }}>
+                    {error}
+                  </div>
+                )}
               </div>
             </div>
-          )}
-          
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <button
-              onClick={resetBooking}
-              style={{ ...styles.button, width: '100%' }}
-            >
-              Book Another Spot
-            </button>
-            
-            <div style={{ fontSize: '14px', color: '#6B7280', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <p style={{ margin: 0 }}>✅ Navigation sent to your Tesla</p>
-              <p style={{ margin: 0 }}>✅ Host has been notified</p>
-              <p style={{ margin: 0 }}>✅ Confirmation email sent</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+          }
+        />
+      )}
+      {step === 'search' && (
+        <Route
+          path="/search"
+          element={
+            <div style={{ minHeight: '100vh', backgroundColor: '#F9FAFB' }}>
+              <header style={{ 
+                backgroundColor: 'white', 
+                borderBottom: '1px solid #E5E7EB',
+                padding: '1rem 0'
+              }}>
+                <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <h1 style={{ fontSize: '1.75rem', fontWeight: 'bold', color: '#1F2937', margin: 0 }}>
+                      Driveway Hub
+                    </h1>
+                    <span style={{ 
+                      marginLeft: '12px', 
+                      fontSize: '12px', 
+                      backgroundColor: '#D1FAE5', 
+                      color: '#065F46', 
+                      padding: '4px 12px', 
+                      borderRadius: '12px' 
+                    }}>
+                      Live Demo
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <span style={{ color: '#6B7280' }}>Welcome, {user?.first_name}</span>
+                    <button
+                      onClick={() => {
+                        localStorage.removeItem('driveway_hub_token');
+                        setToken(null);
+                        setUser(null);
+                        setStep('login');
+                        navigate('/');
+                      }}
+                      style={{ background: 'none', border: 'none', color: '#6B7280', cursor: 'pointer' }}
+                    >
+                      Sign Out
+                    </button>
+                  </div>
+                </div>
+              </header>
 
-  return null;
+              <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem 1rem' }}>
+                <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
+                  <h2 style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#1F2937', marginBottom: '1rem' }}>
+                    Find Your Perfect Parking Spot
+                  </h2>
+                  <p style={{ fontSize: '1.25rem', color: '#6B7280' }}>
+                    Secure, convenient parking for your Tesla
+                  </p>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3rem' }}>
+                  <div>
+                    <h3 style={{ fontSize: '1.5rem', fontWeight: '600', color: '#1F2937', marginBottom: '1.5rem' }}>
+                      Available Driveways
+                    </h3>
+                    
+                    {driveways.map((driveway) => (
+                      <div
+                        key={driveway.id}
+                        style={{
+                          border: '1px solid #E5E7EB',
+                          borderRadius: '12px',
+                          padding: '1.5rem',
+                          marginBottom: '1rem',
+                          backgroundColor: 'white',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s',
+                          boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)'
+                        }}
+                        onClick={() => handleDrivewaySelect(driveway)}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.transform = 'translateY(-2px)';
+                          e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.1)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.transform = 'translateY(0)';
+                          e.currentTarget.style.boxShadow = '0 1px 3px 0 rgba(0, 0, 0, 0.1)';
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <div style={{ flex: 1 }}>
+                            <h4 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#1F2937', margin: '0 0 0.5rem 0' }}>
+                              {driveway.title}
+                            </h4>
+                            <p style={{ color: '#6B7280', fontSize: '14px', margin: '0 0 1rem 0' }}>
+                              {driveway.description}
+                            </p>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem' }}>
+                              <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#059669' }}>
+                                ${driveway.hourly_rate}/hour
+                              </span>
+                              <span style={{ color: '#6B7280' }}>
+                                ${driveway.daily_rate}/day
+                              </span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', fontSize: '14px', color: '#6B7280' }}>
+                              <span>📍 Hosted by {driveway.host_name}</span>
+                            </div>
+                          </div>
+                          <button style={{
+                            ...styles.button,
+                            marginLeft: '1rem'
+                          }}>
+                            Select
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={styles.card}>
+                    <h3 style={{ fontSize: '1.5rem', fontWeight: '600', color: '#1F2937', marginBottom: '1rem' }}>
+                      Your Vehicles
+                    </h3>
+                    {vehicles.map((vehicle) => (
+                      <div key={vehicle.id} style={{
+                        border: '1px solid #E5E7EB',
+                        borderRadius: '8px',
+                        padding: '1rem',
+                        marginBottom: '1rem'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div>
+                            <h4 style={{ fontWeight: '500', color: '#1F2937', margin: '0 0 0.25rem 0' }}>
+                              {vehicle.year} {vehicle.make} {vehicle.model}
+                            </h4>
+                            <p style={{ color: '#6B7280', fontSize: '14px', margin: 0 }}>
+                              License: {vehicle.license_plate}
+                            </p>
+                          </div>
+                          <div style={{ fontSize: '1.5rem' }}>🚗</div>
+                        </div>
+                      </div>
+                    ))}
+                    
+                    <div style={{
+                      marginTop: '1.5rem',
+                      padding: '1rem',
+                      backgroundColor: '#EBF8FF',
+                      borderRadius: '8px'
+                    }}>
+                      <h4 style={{ fontWeight: '500', color: '#1E40AF', margin: '0 0 0.5rem 0' }}>
+                        Tesla Integration Ready
+                      </h4>
+                      <p style={{ color: '#1E40AF', fontSize: '14px', margin: '0 0 1rem 0' }}>
+                        Once connected, we'll automatically send navigation and parking instructions to your Tesla.
+                      </p>
+                      <button
+                        onClick={() => {
+                          window.location.href = `https://auth.tesla.com/oauth2/v3/authorize?client_id=${process.env.REACT_APP_TESLA_CLIENT_ID}&redirect_uri=https://driveway-hub.app/auth/callback&response_type=code&scope=vehicle:read`;
+                        }}
+                        style={{
+                          ...styles.button,
+                          padding: '8px 16px',
+                          fontSize: '14px'
+                        }}
+                      >
+                        Connect Tesla Account
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </main>
+            </div>
+          }
+        />
+      )}
+      {step === 'book' && (
+        <Route
+          path="/book"
+          element={<BookStep />}
+        />
+      )}
+      {step === 'confirm' && (
+        <Route
+          path="/confirm"
+          element={
+            <div style={{ ...styles.container, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ ...styles.card, maxWidth: '500px', width: '100%', textAlign: 'center' }}>
+                <div style={{
+                  width: '64px',
+                  height: '64px',
+                  backgroundColor: '#D1FAE5',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 1.5rem auto'
+                }}>
+                  <svg width="32" height="32" fill="none" stroke="#059669" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                
+                <h2 style={{ fontSize: '2rem', fontWeight: 'bold', color: '#059669', marginBottom: '1rem' }}>
+                  Booking Confirmed!
+                </h2>
+                
+                {booking && (
+                  <div style={{
+                    textAlign: 'left',
+                    backgroundColor: '#F9FAFB',
+                    padding: '1.5rem',
+                    borderRadius: '8px',
+                    marginBottom: '2rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.75rem'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ fontWeight: '500' }}>Booking Reference:</span>
+                      <span style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>{booking.booking_reference}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Total Paid:</span>
+                      <span style={{ fontWeight: 'bold' }}>${booking.total_amount.toFixed(2)}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: '#6B7280' }}>
+                      <span>Host receives:</span>
+                      <span>${booking.host_payout.toFixed(2)}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: '#6B7280' }}>
+                      <span>Platform fee:</span>
+                      <span>${booking.platform_fee.toFixed(2)}</span>
+                    </div>
+                  </div>
+                )}
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <button
+                    onClick={resetBooking}
+                    style={{ ...styles.button, width: '100%' }}
+                  >
+                    Book Another Spot
+                  </button>
+                    
+                  <div style={{ fontSize: '14px', color: '#6B7280', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <p style={{ margin: 0 }}>✅ Navigation sent to your Tesla</p>
+                    <p style={{ margin: 0 }}>✅ Host has been notified</p>
+                    <p style={{ margin: 0 }}>✅ Confirmation email sent</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          }
+        />
+      )}
+      <Route path="/auth/callback" element={<TeslaLogin />} />
+    </Routes>
+  );
 }
 
 export default App;

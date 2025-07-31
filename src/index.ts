@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
 import { createClient } from 'redis';
 import { Request, Response, NextFunction } from 'express';
+import axios from 'axios';
 
 declare global {
   namespace Express {
@@ -203,6 +204,37 @@ app.post('/api/bookings/create', authenticateToken, (req, res) => {
       host_payout: 25.0,
     },
   });
+});
+
+// Tesla OAuth
+const getTeslaAccessToken = async (code: string) => {
+  try {
+    const response = await axios.post('https://auth.tesla.com/oauth2/v3/token', {
+      grant_type: 'authorization_code',
+      client_id: process.env.TESLA_CLIENT_ID,
+      client_secret: process.env.TESLA_CLIENT_SECRET,
+      code,
+      redirect_uri: 'http://localhost:3001/callback',
+    });
+    return response.data.access_token;
+  } catch (err: any) {
+    console.error('❌ Tesla token error:', err.message);
+    throw err;
+  }
+};
+
+app.get('/api/tesla/auth', authenticateToken, async (req, res) => {
+  try {
+    // For initial testing, use a mock code (replace with real code from OAuth flow later)
+    const accessToken = await getTeslaAccessToken('mock_code_123');
+    const vehicles = await axios.get('https://owner-api.teslamotors.com/api/1/vehicles', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    res.json({ vehicles: vehicles.data.response });
+  } catch (err: any) {
+    console.error('❌ Tesla API error:', err.message);
+    res.status(500).json({ error: 'Tesla API failure', details: err.message });
+  }
 });
 
 const PORT = process.env.PORT || 3000;
