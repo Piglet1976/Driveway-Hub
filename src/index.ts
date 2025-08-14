@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
 import { createClient } from 'redis';
 import { Request, Response, NextFunction } from 'express';
+import { TeslaService } from './services/tesla.service';
 
 declare global {
   namespace Express {
@@ -106,6 +107,9 @@ testConnection().catch(() => {}); // Prevent process exit on error
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-key';
 
+// Initialize Tesla Service
+const teslaService = new TeslaService(pool);
+
 // JWT Middleware
 const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
   const token = req.headers['authorization']?.split(' ')[1];
@@ -126,69 +130,375 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Mock login
-app.post('/api/auth/login', (req, res) => {
+// Real database login
+app.post('/api/auth/login', async (req, res) => {
   const { email } = req.body;
-  const mockUser = {
-    id: 'mock-uuid-123',
-    first_name: 'Demo',
-    last_name: 'User',
-    email: email || 'hello@driveway-hub.app',
-  };
-  const token = jwt.sign({ email: mockUser.email, id: mockUser.id }, JWT_SECRET, { expiresIn: '24h' });
-  console.log('Mock JWT for testing:', token);
-  res.json({ token, user: mockUser });
+  
+  try {
+    // Query real user from database
+    const result = await pool.query(
+      'SELECT id, email, first_name, last_name, user_type, created_at FROM users WHERE email = $1',
+      [email || 'driver@test.com']
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const user = result.rows[0];
+    const token = jwt.sign({ email: user.email, id: user.id }, JWT_SECRET, { expiresIn: '24h' });
+    console.log('Real database login for:', user.email, '- Token:', token);
+    
+    res.json({ 
+      token, 
+      user: {
+        id: user.id,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        email: user.email,
+        user_type: user.user_type,
+        created_at: user.created_at
+      }
+    });
+  } catch (err: any) {
+    console.error('Login error:', err.message);
+    res.status(500).json({ error: 'Database error during login' });
+  }
 });
 
-// Mock driveways
-app.get('/api/driveways', authenticateToken, (req, res) => {
-  res.json({
-    driveways: [
-      {
-        id: 'driveway-1',
-        title: 'Cozy Downtown Driveway',
-        description: 'Spacious and secure',
-        latitude: 37.7749,
-        longitude: -122.4194,
-        hourly_rate: 5.0,
-        daily_rate: 30.0,
-        available: true,
-        host_name: 'John Doe',
-        host_email: 'john@doe.com',
-      },
-    ],
-    count: 1,
-  });
+// Real database driveways
+app.get('/api/driveways', authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        d.id, d.title, d.description, d.latitude, d.longitude,
+        d.hourly_rate, d.daily_rate, d.is_available as available,
+        d.has_ev_charging, d.charging_connector_type,
+        u.first_name as host_first_name, u.last_name as host_last_name
+      FROM driveways d
+      JOIN users u ON d.host_id = u.id
+      WHERE d.listing_status = 'active'
+      ORDER BY d.created_at DESC
+    `);
+    
+    const driveways = result.rows.map(row => ({
+      id: row.id,
+      title: row.title,
+      description: row.description,
+      latitude: parseFloat(row.latitude),
+      longitude: parseFloat(row.longitude),
+      hourly_rate: parseFloat(row.hourly_rate),
+      daily_rate: row.daily_rate ? parseFloat(row.daily_rate) : null,
+      available: row.available,
+      has_ev_charging: row.has_ev_charging,
+      charging_connector_type: row.charging_connector_type,
+      // Mock Tesla-specific charging data for demo
+      charging_rate_kw: row.has_ev_charging ? 150 : null,
+      estimated_charge_time: row.has_ev_charging ? '45 minutes' : null,
+      charge_cost_per_kwh: row.has_ev_charging ? 0.28 : null,
+      host_name: `${row.host_first_name} ${row.host_last_name}`
+    }));
+    
+    console.log(`Found ${driveways.length} driveways from database`);
+    res.json({ driveways, count: driveways.length });
+  } catch (err: any) {
+    console.error('Driveways query error:', err.message);
+    res.status(500).json({ error: 'Database error fetching driveways' });
+  }
 });
 
-// Mock profile
-app.get('/api/users/profile', authenticateToken, (req, res) => {
-  res.json({
-    user: {
-      id: 'mock-uuid-123',
-      first_name: 'Demo',
-      last_name: 'User',
-      email: req.user.email,
-      user_type: 'driver',
-      created_at: new Date().toISOString(),
-    },
-  });
+// Real database profile
+app.get('/api/users/profile', authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT id, email, first_name, last_name, user_type, created_at, phone, email_verified FROM users WHERE email = $1',
+      [req.user.email]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const user = result.rows[0];
+    console.log(`Profile loaded for user: ${user.email}`);
+    
+    res.json({
+      user: {
+        id: user.id,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        email: user.email,
+        user_type: user.user_type,
+        phone: user.phone,
+        email_verified: user.email_verified,
+        created_at: user.created_at
+      }
+    });
+  } catch (err: any) {
+    console.error('Profile query error:', err.message);
+    res.status(500).json({ error: 'Database error fetching profile' });
+  }
 });
 
-// Mock vehicles
-app.get('/api/users/vehicles', authenticateToken, (req, res) => {
-  res.json({
-    vehicles: [
-      {
-        id: 'vehicle-1',
-        make: 'Tesla',
-        model: 'Model 3',
-        year: 2023,
-        license_plate: 'ABC123',
-      },
-    ],
-    count: 1,
-  });
+// Real database vehicles
+app.get('/api/users/vehicles', authenticateToken, async (req, res) => {
+  try {
+    const userResult = await pool.query(
+      'SELECT id FROM users WHERE email = $1',
+      [req.user.email]
+    );
+    
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const userId = userResult.rows[0].id;
+    const result = await pool.query(`
+      SELECT 
+        id, tesla_vehicle_id, vin, display_name, model, year, color,
+        length_inches, width_inches, height_inches, is_active, last_seen_at
+      FROM vehicles 
+      WHERE user_id = $1 AND is_active = true
+      ORDER BY created_at DESC
+    `, [userId]);
+    
+    const vehicles = result.rows.map(row => ({
+      id: row.id,
+      tesla_vehicle_id: row.tesla_vehicle_id,
+      vin: row.vin,
+      make: 'Tesla', // All vehicles in this demo are Tesla
+      model: row.model,
+      year: row.year,
+      color: row.color,
+      display_name: row.display_name,
+      license_plate: row.vin ? row.vin.slice(-6) : 'ABC123', // Mock license from VIN
+      length: row.length_inches,
+      width: row.width_inches, 
+      height: row.height_inches,
+      // Tesla-specific demo data for frontend
+      battery_level: Math.floor(Math.random() * 60) + 20, // 20-80%
+      battery_range: Math.floor(Math.random() * 200) + 150, // 150-350 miles
+      max_range: 350,
+      is_charging: Math.random() > 0.7,
+      charge_port_open: false,
+      charging_rate: Math.random() > 0.7 ? Math.floor(Math.random() * 50) + 25 : null,
+      time_to_full_charge: null,
+      charge_limit_soc: 90,
+      needs_charging: Math.random() > 0.6,
+      location: {
+        latitude: 37.7749 + (Math.random() - 0.5) * 0.1,
+        longitude: -122.4194 + (Math.random() - 0.5) * 0.1
+      }
+    }));
+    
+    // Add calculated charging status
+    vehicles.forEach(vehicle => {
+      vehicle.needs_charging = vehicle.battery_level < 30;
+    });
+    
+    console.log(`Found ${vehicles.length} vehicles for user: ${req.user.email}`);
+    res.json({ vehicles, count: vehicles.length });
+  } catch (err: any) {
+    console.error('Vehicles query error:', err.message);
+    res.status(500).json({ error: 'Database error fetching vehicles' });
+  }
+});
+
+// Tesla OAuth initiation
+app.get('/api/auth/tesla', authenticateToken, async (req, res) => {
+  try {
+    const authUrl = await teslaService.generateAuthUrl(req.user.id);
+    console.log('Tesla OAuth redirect URL:', authUrl);
+    res.json({ auth_url: authUrl });
+  } catch (error: any) {
+    console.error('Tesla auth URL generation error:', error.message);
+    console.error('Full error:', error);
+    
+    // Provide more specific error messages
+    if (error.message.includes('TESLA_CLIENT_ID')) {
+      res.status(500).json({ 
+        error: 'Tesla integration not configured: Client ID missing',
+        details: 'TESLA_CLIENT_ID environment variable is not set'
+      });
+    } else if (error.message.includes('TESLA_CLIENT_SECRET')) {
+      res.status(500).json({ 
+        error: 'Tesla integration not configured: Client Secret missing',
+        details: 'TESLA_CLIENT_SECRET environment variable is not set'
+      });
+    } else if (error.message.includes('TESLA_OAUTH_REDIRECT_URI')) {
+      res.status(500).json({ 
+        error: 'Tesla integration not configured: Redirect URI missing',
+        details: 'TESLA_OAUTH_REDIRECT_URI environment variable is not set'
+      });
+    } else {
+      res.status(500).json({ 
+        error: 'Failed to generate Tesla authorization URL',
+        details: error.message
+      });
+    }
+  }
+});
+
+// Tesla OAuth callback
+app.post('/api/auth/tesla/callback', authenticateToken, async (req, res) => {
+  const { code, state } = req.body;
+  
+  try {
+    // Parse and verify state
+    const stateData = teslaService.parseState(state);
+    if (!stateData || stateData.userId !== req.user.id) {
+      return res.status(400).json({ error: 'Invalid state parameter' });
+    }
+    
+    // Get stored code verifier
+    const codeVerifier = await teslaService.getCodeVerifier(req.user.id);
+    if (!codeVerifier) {
+      return res.status(400).json({ error: 'Code verifier not found. Please restart OAuth flow.' });
+    }
+    
+    // Exchange code for tokens
+    const tokenData = await teslaService.exchangeCodeForToken(code, codeVerifier);
+    
+    // Store tokens
+    await teslaService.storeTokens(req.user.id, tokenData);
+    
+    // Fetch and sync vehicles
+    try {
+      const vehicles = await teslaService.getVehicles(tokenData.access_token);
+      await teslaService.syncVehiclesToDatabase(req.user.id, vehicles);
+      console.log(`Synced ${vehicles.length} Tesla vehicles for user: ${req.user.email}`);
+    } catch (syncError) {
+      console.error('Vehicle sync error (non-fatal):', syncError);
+    }
+    
+    console.log('Tesla OAuth success for user:', req.user.email);
+    res.json({ 
+      success: true, 
+      message: 'Tesla account connected successfully',
+      expires_in: tokenData.expires_in
+    });
+    
+  } catch (err: any) {
+    console.error('Tesla OAuth error:', err.message);
+    res.status(500).json({ error: 'Tesla authentication failed: ' + err.message });
+  }
+});
+
+// Get Tesla vehicles for authenticated user
+app.get('/api/tesla/vehicles', authenticateToken, async (req, res) => {
+  try {
+    // Get valid access token (handles refresh if needed)
+    const accessToken = await teslaService.getValidAccessToken(req.user.id);
+    
+    if (!accessToken) {
+      return res.status(401).json({ error: 'Tesla account not connected or token expired' });
+    }
+    
+    // Fetch vehicles from Tesla API
+    const vehicles = await teslaService.getVehicles(accessToken);
+    
+    // Sync to database
+    await teslaService.syncVehiclesToDatabase(req.user.id, vehicles);
+    
+    console.log(`Fetched ${vehicles.length} vehicles from Tesla API for user: ${req.user.email}`);
+    res.json({ response: vehicles, count: vehicles.length });
+    
+  } catch (err: any) {
+    console.error('Tesla vehicles error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch Tesla vehicles' });
+  }
+});
+
+// Get specific Tesla vehicle data
+app.get('/api/tesla/vehicles/:vehicleId', authenticateToken, async (req, res) => {
+  try {
+    const { vehicleId } = req.params;
+    const accessToken = await teslaService.getValidAccessToken(req.user.id);
+    
+    if (!accessToken) {
+      return res.status(401).json({ error: 'Tesla account not connected or token expired' });
+    }
+    
+    const vehicleData = await teslaService.getVehicleData(accessToken, vehicleId);
+    
+    console.log(`Fetched data for Tesla vehicle ${vehicleId} for user: ${req.user.email}`);
+    res.json({ response: vehicleData });
+    
+  } catch (err: any) {
+    console.error('Tesla vehicle data error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch Tesla vehicle data' });
+  }
+});
+
+// Wake up Tesla vehicle
+app.post('/api/tesla/vehicles/:vehicleId/wake', authenticateToken, async (req, res) => {
+  try {
+    const { vehicleId } = req.params;
+    const accessToken = await teslaService.getValidAccessToken(req.user.id);
+    
+    if (!accessToken) {
+      return res.status(401).json({ error: 'Tesla account not connected or token expired' });
+    }
+    
+    const isAwake = await teslaService.wakeUpVehicle(accessToken, vehicleId);
+    
+    console.log(`Wake command for Tesla vehicle ${vehicleId}: ${isAwake ? 'success' : 'failed'}`);
+    res.json({ success: isAwake, message: isAwake ? 'Vehicle is awake' : 'Failed to wake vehicle' });
+    
+  } catch (err: any) {
+    console.error('Tesla wake error:', err.message);
+    res.status(500).json({ error: 'Failed to wake Tesla vehicle' });
+  }
+});
+
+// Send command to Tesla vehicle
+app.post('/api/tesla/vehicles/:vehicleId/command/:command', authenticateToken, async (req, res) => {
+  try {
+    const { vehicleId, command } = req.params;
+    const accessToken = await teslaService.getValidAccessToken(req.user.id);
+    
+    if (!accessToken) {
+      return res.status(401).json({ error: 'Tesla account not connected or token expired' });
+    }
+    
+    const result = await teslaService.sendCommand(accessToken, vehicleId, command, req.body);
+    
+    console.log(`Command '${command}' sent to Tesla vehicle ${vehicleId}`);
+    res.json(result);
+    
+  } catch (err: any) {
+    console.error('Tesla command error:', err.message);
+    res.status(500).json({ error: `Failed to execute Tesla command: ${err.message}` });
+  }
+});
+
+// Check Tesla connection status
+app.get('/api/tesla/status', authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT tesla_access_token, tesla_token_expires_at FROM users WHERE id = $1',
+      [req.user.id]
+    );
+    
+    if (result.rows.length === 0 || !result.rows[0].tesla_access_token) {
+      return res.json({ connected: false, message: 'Tesla account not connected' });
+    }
+    
+    const expiresAt = new Date(result.rows[0].tesla_token_expires_at);
+    const now = new Date();
+    const isExpired = now > expiresAt;
+    
+    res.json({
+      connected: true,
+      expired: isExpired,
+      expires_at: expiresAt.toISOString(),
+      message: isExpired ? 'Token expired, refresh needed' : 'Tesla account connected'
+    });
+    
+  } catch (err: any) {
+    console.error('Tesla status error:', err.message);
+    res.status(500).json({ error: 'Failed to check Tesla status' });
+  }
 });
 
 // Mock booking create
