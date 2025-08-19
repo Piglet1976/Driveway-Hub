@@ -1,2 +1,22 @@
-﻿.env
-node_modules
+# Environment files
+.env
+.env.*
+!.env.example
+
+# SSL certificates - CRITICAL!
+nginx/ssl/
+*.pem
+*.key
+*.crt
+
+# Node modules
+node_modules/
+
+# Build outputs
+frontend/build/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store

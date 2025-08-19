@@ -1,62 +1,118 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgis/postgis:14-3.3
+    container_name: driveway-hub-postgres
     environment:
       POSTGRES_USER: ${DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-your_password}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
       POSTGRES_DB: ${DB_NAME:-driveway_hub_dev}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=scram-sha-256"
     ports:
-      - "5433:5432"
+      - "${DB_PORT_EXTERNAL:-5433}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-driveway_hub_dev}"]
+      interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - driveway-hub-network
 
   redis:
-    image: redis:7
-    ports:
-      - "6379:6379"
+    image: redis:7-alpine
+    container_name: driveway-hub-redis
+  
     volumes:
       - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
+      interval: 10s
       timeout: 3s
       retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - driveway-hub-network
+    command: redis-server --appendonly yes
 
   app:
     build:
       context: .
       dockerfile: Dockerfile
+      target: ${BUILD_TARGET:-development}
+    container_name: driveway-hub-app
     environment:
-      NODE_ENV: development
+      NODE_ENV: ${NODE_ENV:-development}
+      # Database configuration (using internal Docker networking)
       DB_HOST: postgres
-      DB_USER: ${DB_USER:-postgres}
-      DB_PASSWORD: ${DB_PASSWORD:-your_password}
-      DB_NAME: ${DB_NAME:-driveway_hub_dev}
       DB_PORT: 5432
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_NAME: ${DB_NAME:-driveway_hub_dev}
+      # Redis configuration
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      JWT_SECRET: ${JWT_SECRET:-your_jwt_secret}
+      # Application configuration
+      JWT_SECRET: ${JWT_SECRET:-your_jwt_secret_change_in_production}
       PORT: 3000
+      # Tesla API configuration
+      TESLA_CLIENT_ID: ${TESLA_CLIENT_ID}
+      TESLA_CLIENT_SECRET: ${TESLA_CLIENT_SECRET}
+      TESLA_REDIRECT_URI: https://driveway-hub.app/api/auth/callback
+      # Production domain configuration
+      DOMAIN: ${DOMAIN:-http://localhost:3000}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3001}
     ports:
-      - "3000:3000"
+      - "${APP_PORT:-3000}:3000"
     volumes:
-      - .:/app
-      - /app/node_modules
+      # Development: mount source code for hot reload
+      - ${VOLUME_MOUNT:-.:/app}
+      - ${NODE_MODULES_VOLUME:-/app/node_modules}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: npm run dev
+    healthcheck:
+      test: ["CMD", "node", "-e", "const http = require('http'); const req = http.request({hostname: 'localhost', port: 3000, path: '/api/health', timeout: 3000}, (res) => process.exit(res.statusCode === 200 ? 0 : 1)); req.on('error', () => process.exit(1)); req.end();"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - driveway-hub-network
+
+  # Frontend service (optional - for full stack deployment)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: driveway-hub-frontend
+    environment:
+      REACT_APP_API_URL: ${REACT_APP_API_URL:-http://localhost:3000}
+      REACT_APP_ENVIRONMENT: ${NODE_ENV:-development}
+    ports:
+      - "${FRONTEND_PORT:-3001}:3000"
+    depends_on:
+      - app
+    restart: unless-stopped
+    networks:
+      - driveway-hub-network
+    profiles:
+      - frontend
 
 volumes:
   postgres_data:
+    driver: local
   redis_data:
+    driver: local
+
+networks:
+  driveway-hub-network:
+    driver: bridge
+    name: driveway-hub-network

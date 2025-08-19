@@ -1,0 +1,20 @@
+version: 
+
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: driveway-hub-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/html:/usr/share/nginx/html:ro
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    networks:
+      - driveway-hub-network
+    restart: unless-stopped
+
+networks:
+  driveway-hub-network:
+    external: true

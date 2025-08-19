@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"C:\\Users\\davel\\driveway-hub\" -Name \"*.env*\")",
+      "Bash(docker logs:*)",
+      "Bash(docker compose:*)",
+      "Bash(docker exec:*)",
+      "Bash(cmd /c:*)",
+      "Bash(curl:*)",
+      "Bash(powershell:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
