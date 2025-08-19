@@ -3,7 +3,7 @@
 .env.*
 !.env.example
 
-# SSL certificates - CRITICAL!
+# SSL certificates
 nginx/ssl/
 *.pem
 *.key
