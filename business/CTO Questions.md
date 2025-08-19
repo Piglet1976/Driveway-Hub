@@ -12,7 +12,7 @@
 **4. "How do you scale supply? Getting homeowners to list their driveways seems like the harder side of the marketplace."**
 *Answer:* We start in high-density commuter areas where demand is obvious - near train stations, airports, downtown areas. Our initial pilot targets homeowners who are already renting informally (like Raj mentioned). We provide them with professional tools, insurance, and consistent revenue. Plus, our Tesla integration means premium customers and higher rates than informal arrangements.
 
-## Questions to Ask Britton (with Follow-ups):
+## Questions to Ask (with Follow-ups):
 
 **1. "Given your experience scaling infrastructure at massive companies, what do you see as the biggest technical challenges in building a real-time parking marketplace?"**
 *Follow-up:* "How would you architect the system to handle peak demand periods, like rush hour in major metro areas?"
@@ -25,3 +25,4 @@
 
 **4. "You've worked on products used by hundreds of millions - how do you think about the operational complexity of managing physical spaces versus digital products?"**
 *Follow-up:* "What systems would you put in place to handle disputes, no-shows, or property damage at scale?"
+
