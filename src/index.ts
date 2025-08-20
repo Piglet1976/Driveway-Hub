@@ -501,18 +501,181 @@ app.get('/api/tesla/status', authenticateToken, async (req, res) => {
   }
 });
 
-// Mock booking create
-app.post('/api/bookings/create', authenticateToken, (req, res) => {
-  res.status(201).json({
-    message: 'Booking created successfully',
-    booking: {
-      booking_id: 'booking-1',
-      booking_reference: 'REF123',
-      total_amount: 30.0,
-      platform_fee: 5.0,
-      host_payout: 25.0,
-    },
-  });
+// Real database booking create
+app.post('/api/bookings/create', authenticateToken, async (req, res) => {
+  const { driveway_id, vehicle_id, start_time, end_time, driver_notes } = req.body;
+  
+  try {
+    // SECURITY: Validate start time is not in the past
+    const startTime = new Date(start_time);
+    const now = new Date();
+    if (startTime < now) {
+      return res.status(400).json({ error: 'Start time cannot be in the past' });
+    }
+    
+    // Get user ID from token
+    const userResult = await pool.query(
+      'SELECT id FROM users WHERE email = $1',
+      [req.user.email]
+    );
+    
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const driverId = userResult.rows[0].id;
+    
+    // Get driveway info and host_id
+    const drivewayResult = await pool.query(
+      'SELECT host_id, hourly_rate, title FROM driveways WHERE id = $1 AND listing_status = $2',
+      [driveway_id, 'active']
+    );
+    
+    if (drivewayResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Driveway not found or not available' });
+    }
+    
+    const { host_id, hourly_rate, title } = drivewayResult.rows[0];
+    
+    // Calculate booking duration and pricing
+    const endTime = new Date(end_time);
+    const totalHours = Math.ceil((endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60));
+    const subtotal = totalHours * parseFloat(hourly_rate);
+    const platformFee = Math.max(subtotal * 0.1, 2.00); // 10% platform fee, min $2
+    const totalAmount = subtotal + platformFee;
+    
+    // Generate booking reference
+    const bookingRef = `DH-${Math.random().toString(36).toUpperCase().substring(2, 8)}`;
+    
+    // Insert booking into database
+    const bookingResult = await pool.query(`
+      INSERT INTO bookings (
+        driveway_id, driver_id, host_id, vehicle_id,
+        booking_reference, start_time, end_time, total_hours, hourly_rate,
+        subtotal, platform_fee, total_amount, booking_status, driver_notes
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      RETURNING id, booking_reference, total_amount, created_at
+    `, [
+      driveway_id, driverId, host_id, vehicle_id,
+      bookingRef, start_time, end_time, totalHours, hourly_rate,
+      subtotal, platformFee, totalAmount, 'confirmed', driver_notes
+    ]);
+    
+    const booking = bookingResult.rows[0];
+    
+    console.log(`✅ Booking created: ${booking.booking_reference} for driveway "${title}" - $${totalAmount}`);
+    
+    res.status(201).json({
+      message: 'Booking created successfully',
+      booking: {
+        booking_id: booking.id,
+        booking_reference: booking.booking_reference,
+        driveway_title: title,
+        total_hours: totalHours,
+        subtotal: subtotal,
+        platform_fee: platformFee,
+        total_amount: parseFloat(booking.total_amount),
+        created_at: booking.created_at,
+        start_time: start_time,
+        end_time: end_time
+      }
+    });
+    
+  } catch (err: any) {
+    console.error('❌ Booking creation error:', err.message);
+    
+    if (err.code === '23505') { // Unique constraint violation
+      res.status(409).json({ error: 'Booking reference conflict. Please try again.' });
+    } else if (err.code === '23503') { // Foreign key violation
+      res.status(400).json({ error: 'Invalid driveway or vehicle reference' });
+    } else if (err.code === '23514') { // Check constraint violation
+      res.status(400).json({ error: 'Invalid booking time or pricing data' });
+    } else {
+      res.status(500).json({ error: 'Database error creating booking' });
+    }
+  }
+});
+
+// Real database bookings list
+app.get('/api/bookings', authenticateToken, async (req, res) => {
+  try {
+    // Get user ID from token
+    const userResult = await pool.query(
+      'SELECT id FROM users WHERE email = $1',
+      [req.user.email]
+    );
+    
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const userId = userResult.rows[0].id;
+    
+    // Get bookings where user is either driver or host
+    const bookingsResult = await pool.query(`
+      SELECT 
+        b.id, b.booking_reference, b.start_time, b.end_time,
+        b.total_hours, b.subtotal, b.platform_fee, b.total_amount,
+        b.booking_status, b.driver_notes, b.host_notes,
+        b.created_at, b.confirmed_at, b.completed_at, b.cancelled_at,
+        d.title as driveway_title, d.address as driveway_address,
+        d.city, d.has_ev_charging,
+        v.model as vehicle_model, v.display_name as vehicle_name,
+        u_driver.first_name as driver_first_name, u_driver.last_name as driver_last_name,
+        u_host.first_name as host_first_name, u_host.last_name as host_last_name,
+        CASE 
+          WHEN b.driver_id = $1 THEN 'driver'
+          WHEN b.host_id = $1 THEN 'host'
+          ELSE 'unknown'
+        END as user_role
+      FROM bookings b
+      JOIN driveways d ON b.driveway_id = d.id
+      JOIN vehicles v ON b.vehicle_id = v.id
+      JOIN users u_driver ON b.driver_id = u_driver.id
+      JOIN users u_host ON b.host_id = u_host.id
+      WHERE b.driver_id = $1 OR b.host_id = $1
+      ORDER BY b.created_at DESC
+      LIMIT 50
+    `, [userId]);
+    
+    const bookings = bookingsResult.rows.map(row => ({
+      id: row.id,
+      booking_reference: row.booking_reference,
+      start_time: row.start_time,
+      end_time: row.end_time,
+      total_hours: parseFloat(row.total_hours),
+      subtotal: parseFloat(row.subtotal),
+      platform_fee: parseFloat(row.platform_fee),
+      total_amount: parseFloat(row.total_amount),
+      booking_status: row.booking_status,
+      driver_notes: row.driver_notes,
+      host_notes: row.host_notes,
+      created_at: row.created_at,
+      confirmed_at: row.confirmed_at,
+      completed_at: row.completed_at,
+      cancelled_at: row.cancelled_at,
+      user_role: row.user_role,
+      driveway: {
+        title: row.driveway_title,
+        address: row.driveway_address,
+        city: row.city,
+        has_ev_charging: row.has_ev_charging
+      },
+      vehicle: {
+        model: row.vehicle_model,
+        display_name: row.vehicle_name
+      },
+      driver_name: `${row.driver_first_name} ${row.driver_last_name}`,
+      host_name: `${row.host_first_name} ${row.host_last_name}`
+    }));
+    
+    console.log(`Found ${bookings.length} bookings for user: ${req.user.email}`);
+    res.json({ bookings, count: bookings.length });
+    
+  } catch (err: any) {
+    console.error('Bookings query error:', err.message);
+    res.status(500).json({ error: 'Database error fetching bookings' });
+  }
 });
 
 const PORT = process.env.PORT || 3000;

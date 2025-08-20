@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"C:\\Users\\davel\\driveway-hub\" -Name \"*.env*\")",
+      "Bash(docker logs:*)",
+      "Bash(docker compose:*)",
+      "Bash(docker exec:*)",
+      "Bash(cmd /c:*)",
+      "Bash(curl:*)",
+      "Bash(powershell:*)",
+      "Bash(chmod:*)",
+      "Bash(dir C:Usersdaveldriveway-hubscripts)",
+      "Bash(docker ps:*)",
+      "Bash(docker-compose:*)",
+      "Bash(dir:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(npm install:*)",
+      "Bash(npm start)",
+      "Bash(PORT=3001 npm start)",
+      "Bash(npx tailwindcss:*)",
+      "Bash(rm:*)",
+      "Bash(ssh:*)",
+      "Bash(npm run build:*)",
+      "Bash(scp:*)",
+      "Bash(tar:*)",
+      "WebFetch(domain:github.com)"
+    ],
+    "deny": [],
+    "ask": [],
+    "defaultMode": "acceptEdits"
+  }
+}

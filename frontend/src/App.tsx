@@ -60,7 +60,7 @@ interface BookingResponse {
   host_payout: number;
 }
 
-const API_BASE_URL = 'http://localhost:3000';
+const API_BASE_URL = process.env.REACT_APP_API_URL || "https://driveway-hub.app";
 
 // Tesla Vehicle Silhouette Component
 const TeslaVehicleIcon: React.FC<{ model: string; className?: string }> = ({ model, className = "" }) => {
@@ -424,13 +424,13 @@ function App() {
     return response.json();
   };
 
-  const handleLogin = async (email: string) => {
+  const handleLogin = async (email: string, password: string) => {
     setLoading(true);
     setError(null);
     try {
       const data = await apiCall('/api/auth/login', {
         method: 'POST',
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, password }),
       });
       
       setToken(data.token);
@@ -483,7 +483,9 @@ function App() {
     if (!startTime || !endTime) return 0;
     const start = new Date(startTime);
     const end = new Date(endTime);
-    return Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60));
+    const diffMs = end.getTime() - start.getTime();
+    if (diffMs <= 0) return 0; // Prevent negative or zero duration
+    return Math.ceil(diffMs / (1000 * 60 * 60));
   };
 
   const calculateTotal = () => {
@@ -499,6 +501,21 @@ function App() {
       setError('Please fill in all fields');
       return;
     }
+    // SECURITY: Basic date validation
+    const now = new Date();
+    const start = new Date(startTime);
+    const end = new Date(endTime);
+    
+    if (start < now) {
+      setError('Start time cannot be in the past');
+      return;
+    }
+    
+    if (end <= start) {
+      setError('End time must be after start time');
+      return;
+    }
+
 
     setLoading(true);
     setError(null);
@@ -705,11 +722,26 @@ function App() {
           <div style={{ marginBottom: '1rem' }}>
             <input
               type="email"
+              id="email"
               placeholder="Enter your email"
               style={styles.input}
+            />
+          </div>
+          
+          <div style={{ marginBottom: '1rem' }}>
+            <input
+              type="password"
+              id="password"
+              placeholder="Enter your password"
+              style={styles.input}
+              required
               onKeyPress={(e) => {
                 if (e.key === 'Enter') {
-                  handleLogin((e.target as HTMLInputElement).value);
+                  const emailEl = document.getElementById('email') as HTMLInputElement;
+                  const passEl = document.getElementById('password') as HTMLInputElement;
+                  if (emailEl?.value && passEl?.value) {
+                    handleLogin(emailEl.value, passEl.value);
+                  }
                 }
               }}
             />
@@ -717,8 +749,13 @@ function App() {
           
           <button
             onClick={() => {
-              const input = document.querySelector('input[type="email"]') as HTMLInputElement;
-              handleLogin(input?.value || 'hello@driveway-hub.app');
+              const emailEl = document.getElementById('email') as HTMLInputElement;
+              const passEl = document.getElementById('password') as HTMLInputElement;
+              if (emailEl?.value && passEl?.value) {
+                handleLogin(emailEl.value, passEl.value);
+              } else {
+                setError('Please enter both email and password');
+              }
             }}
             disabled={loading}
             style={{
@@ -733,7 +770,7 @@ function App() {
           </button>
           
           <button
-            onClick={() => handleLogin('hello@driveway-hub.app')}
+            onClick={() => handleLogin('ruth.tesla@driveway-hub.com', 'Demo2024!')}
             style={{
               background: 'none',
               border: 'none',
