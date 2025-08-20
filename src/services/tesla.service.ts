@@ -77,39 +77,9 @@ export class TeslaService {
     this.clientSecret = process.env.TESLA_CLIENT_SECRET || '';
     this.redirectUri = process.env.TESLA_OAUTH_REDIRECT_URI || '';
     this.scope = process.env.TESLA_OAUTH_SCOPE || 'openid offline_access user_data vehicle_device_data vehicle_cmds vehicle_charging_cmds';
-    
-    // Log initialization status (without exposing secrets)
-    console.log('Tesla Service initialized:', {
-      clientId: this.clientId ? `${this.clientId.substring(0, 8)}...` : 'NOT SET',
-      clientSecret: this.clientSecret ? 'SET' : 'NOT SET',
-      redirectUri: this.redirectUri || 'NOT SET',
-      scope: this.scope
-    });
-    
-    // Warn if critical config is missing
-    if (!this.clientId) {
-      console.error('WARNING: TESLA_CLIENT_ID is not set!');
-    }
-    if (!this.clientSecret) {
-      console.error('WARNING: TESLA_CLIENT_SECRET is not set!');
-    }
-    if (!this.redirectUri) {
-      console.error('WARNING: TESLA_OAUTH_REDIRECT_URI is not set!');
-    }
   }
 
   async generateAuthUrl(userId: string): Promise<string> {
-    // Validate required configuration
-    if (!this.clientId) {
-      throw new Error('TESLA_CLIENT_ID is not configured');
-    }
-    if (!this.clientSecret) {
-      throw new Error('TESLA_CLIENT_SECRET is not configured');
-    }
-    if (!this.redirectUri) {
-      throw new Error('TESLA_OAUTH_REDIRECT_URI is not configured');
-    }
-    
     const state = this.generateState(userId);
     const codeVerifier = this.generateCodeVerifier();
     const codeChallenge = this.generateCodeChallenge(codeVerifier);
@@ -127,9 +97,7 @@ export class TeslaService {
       code_challenge_method: 'S256'
     });
 
-    const authUrl = `https://auth.tesla.com/oauth2/v3/authorize?${params.toString()}`;
-    console.log('Generated Tesla auth URL for user:', userId);
-    return authUrl;
+    return `https://auth.tesla.com/oauth2/v3/authorize?${params.toString()}`;
   }
 
   private generateState(userId: string): string {

@@ -126,15 +126,15 @@ echo "-------------------------------------------------"
 
 # Stop current containers
 echo "Stopping current containers..."
-docker-compose -f docker-compose.yml -f docker-compose.production.yml down
+docker compose -f docker compose.yml -f docker compose.production.yml down
 
 # Rebuild the app with new TypeScript changes
 echo "Rebuilding application with improved error handling..."
-docker-compose -f docker-compose.yml -f docker-compose.production.yml --env-file $ENV_FILE build app
+docker compose -f docker compose.yml -f docker compose.production.yml --env-file $ENV_FILE build app
 
 # Start containers with the correct env file
 echo "Starting containers with updated configuration..."
-docker-compose -f docker-compose.yml -f docker-compose.production.yml --env-file $ENV_FILE up -d
+docker compose -f docker compose.yml -f docker compose.production.yml --env-file $ENV_FILE up -d
 
 # Wait for services to be ready
 echo "Waiting for services to start..."
@@ -146,7 +146,7 @@ echo "--------------------------------------------------"
 
 # Check logs for Tesla initialization
 echo "Checking app logs for Tesla service status..."
-docker-compose -f docker-compose.yml -f docker-compose.production.yml logs app | grep -i "Tesla Service initialized" | tail -1
+docker compose -f docker compose.yml -f docker compose.production.yml logs app | grep -i "Tesla Service initialized" | tail -1
 
 echo ""
 echo -e "${BLUE}Step 7: Testing Tesla OAuth endpoint...${NC}"
@@ -168,7 +168,7 @@ echo ""
 echo "Your Tesla OAuth should now be working. To verify:"
 echo ""
 echo "1. Check the logs:"
-echo "   docker-compose -f docker-compose.yml -f docker-compose.production.yml logs -f app"
+echo "   docker compose -f docker compose.yml -f docker compose.production.yml logs -f app"
 echo ""
 echo "2. Run the test script:"
 echo "   ./scripts/test-tesla-oauth.sh"

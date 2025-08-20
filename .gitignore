@@ -1,2 +1,28 @@
-﻿.env
-node_modules
+# Environment files - NEVER commit
+.env
+.env.*
+!.env.example
+
+# Credentials
+*.pem
+*.key
+*.crt
+*credentials*
+
+# Secrets
+/root/.tesla_credentials
+/root/.pgpass*
+/root/.db_password
+
+# Node
+node_modules/
+
+# Builds
+build/
+dist/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
