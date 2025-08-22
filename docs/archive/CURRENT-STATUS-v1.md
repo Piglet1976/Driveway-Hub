@@ -141,8 +141,4 @@ Detailed technical architecture available in Tesla integration code artifact. Ke
 - **Landing Page:** https://driveway-hub.carrd.co/
 - **GitHub:** https://github.com/piglet1976/driveway-hub
 
----
 
-## Quick Context for New Claude Sessions
-**Copy/paste this for rapid context:**
-I'm David, founder of Driveway-Hub - Tesla-integrated parking app. Tesla Fleet API approved ✅, landing page live at driveway-hub.carrd.co ✅, 25+ market validation responses ✅. Currently in pre-MVP phase, looking for technical co-founder and starting development. GitHub: github.com/piglet1976/driveway-hub. Need help with: [specific current need]
